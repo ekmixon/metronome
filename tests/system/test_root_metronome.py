@@ -33,11 +33,9 @@ def test_remove_job():
     client.add_job(job_no_schedule('remove-job'))
     assert client.remove_job('remove-job') is None
     job_exists = False
-    try:
+    with contextlib.suppress(Exception):
         client.get_job('remove-job')
         job_exists = True
-    except Exception:
-        pass
     assert not job_exists, "Job exists"
 
 
@@ -72,7 +70,7 @@ def test_disable_schedule():
         when the schedule is disabled.
     """
     client = metronome.create_client()
-    job_id = 'schedule-disabled-{}'.format(uuid.uuid4().hex)
+    job_id = f'schedule-disabled-{uuid.uuid4().hex}'
     job_json = job_no_schedule(job_id)
     with job(job_json):
         # indent
@@ -105,7 +103,7 @@ def test_disable_schedule_recovery_from_master_bounce():
         when the schedule is disabled.
     """
     client = metronome.create_client()
-    job_id = 'schedule-disabled-{}'.format(uuid.uuid4().hex)
+    job_id = f'schedule-disabled-{uuid.uuid4().hex}'
     job_json = job_no_schedule(job_id)
     with job(job_json):
         # indent
@@ -193,11 +191,9 @@ def test_remove_schedule():
         assert client.get_schedule('schedule', 'nightly')['cron'] == '20 0 * * *'
         client.remove_schedule('schedule', 'nightly')
         schedule_exists = False
-        try:
+        with contextlib.suppress(Exception):
             client.get_schedule('schedule', 'nightly')
             schedule_exists = True
-        except Exception:
-            pass
         assert not schedule_exists, "Schedule exists"
 
 
@@ -309,7 +305,7 @@ def test_metronome_shutdown_with_no_extra_tasks():
         When Metronome is restarted it incorrectly started another task for already running job run task.
     """
     client = metronome.create_client()
-    job_id = "metronome-shutdown-{}".format(uuid.uuid4().hex)
+    job_id = f"metronome-shutdown-{uuid.uuid4().hex}"
     with job(job_no_schedule(job_id)):
         # run a job before we shutdown Metronome
         run_id = client.run_job(job_id)["id"]

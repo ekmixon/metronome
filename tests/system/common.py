@@ -150,17 +150,11 @@ def constraints(name, operator, value=None):
 def get_job_tasks(job_id, run_id):
     client = metronome.create_client()
     run = client.get_run(job_id, run_id)
-    taskids = []
-    for task in run['tasks']:
-        taskids.append(task['id'])
-
+    taskids = [task['id'] for task in run['tasks']]
     job_tasks = []
     all_job_tasks = shakedown.get_service_tasks('metronome')
     for task in all_job_tasks:
-        for taskid in taskids:
-            if taskid == task['id']:
-                job_tasks.append(task)
-
+        job_tasks.extend(task for taskid in taskids if taskid == task['id'])
     return job_tasks
 
 
@@ -221,7 +215,7 @@ def assert_job_run(client, job_id, runs_number=1, active_tasks_number=1):
 
 def job_run_predicate(job_id, run_id):
     run = metronome.create_client().get_run(job_id, run_id)
-    return run["status"] == "ACTIVE" or run["status"] == "SUCCESS"
+    return run["status"] in ["ACTIVE", "SUCCESS"]
 
 
 def wait_for_job_started(job_id, run_id, timeout=120):
@@ -252,7 +246,7 @@ def not_required_masters_exact_count(count):
 
 
 def masters_exact(count):
-    return pytest.mark.skipif('not_required_masters_exact_count({})'.format(count))
+    return pytest.mark.skipif(f'not_required_masters_exact_count({count})')
 
 
 def install_enterprise_cli_package():
@@ -267,11 +261,14 @@ def install_enterprise_cli_package():
 def is_enterprise_cli_package_installed():
     """Returns `True` if `dcos-enterprise-cli` package is installed."""
     stdout, stderr, return_code = shakedown.run_dcos_command('package list --json')
-    print('package list command returned code:{}, stderr:{}, stdout: {}'.format(return_code, stderr, stdout))
+    print(
+        f'package list command returned code:{return_code}, stderr:{stderr}, stdout: {stdout}'
+    )
+
     try:
         result_json = json.loads(stdout)
     except JSONDecodeError as error:
-        raise DCOSException('Could not parse: "{}"'.format(stdout))(error)
+        raise DCOSException(f'Could not parse: "{stdout}"')(error)
     return any(cmd['name'] == 'dcos-enterprise-cli' for cmd in result_json)
 
 
@@ -298,8 +295,11 @@ def delete_secret(secret_name):
        :param secret_name: secret name
        :type secret_name: str
     """
-    print('Removing existing secret {}'.format(secret_name))
-    stdout, stderr, return_code = shakedown.run_dcos_command('security secrets delete {}'.format(secret_name))
+    print(f'Removing existing secret {secret_name}')
+    stdout, stderr, return_code = shakedown.run_dcos_command(
+        f'security secrets delete {secret_name}'
+    )
+
     assert return_code == 0, "Failed to remove existing secret"
 
 
@@ -337,21 +337,22 @@ def create_secret(name, value=None, description=None):
        :param description: option secret description
        :type description: str
     """
-    print('Creating new secret {}:{}'.format(name, value))
+    print(f'Creating new secret {name}:{value}')
 
-    value_opt = '-v {}'.format(shlex.quote(value)) if value else ''
-    description_opt = '-d "{}"'.format(description) if description else ''
+    value_opt = f'-v {shlex.quote(value)}' if value else ''
+    description_opt = f'-d "{description}"' if description else ''
 
-    stdout, stderr, return_code = shakedown.run_dcos_command('security secrets create {} {} "{}"'.format(
-        value_opt,
-        description_opt,
-        name), print_output=True)
+    stdout, stderr, return_code = shakedown.run_dcos_command(
+        f'security secrets create {value_opt} {description_opt} "{name}"',
+        print_output=True,
+    )
+
     assert return_code == 0, "Failed to create a secret"
 
 
 def get_metronome_endpoint(path, metronome_name='metronome'):
     """Returns the url for the metronome endpoint."""
-    return shakedown.dcos_url_path('service/{}/{}'.format(metronome_name, path))
+    return shakedown.dcos_url_path(f'service/{metronome_name}/{path}')
 
 
 def metronome_version():
@@ -362,9 +363,9 @@ def metronome_version():
 
 
 def cluster_info():
-    print("DC/OS: {}, in {} mode".format(shakedown.dcos_version(), shakedown.ee_version()))
+    print(f"DC/OS: {shakedown.dcos_version()}, in {shakedown.ee_version()} mode")
     agents = shakedown.get_private_agents()
-    print("Agents: {}".format(len(agents)))
+    print(f"Agents: {len(agents)}")
 
     about = metronome_version()
-    print("Marathon version: {}".format(about))
+    print(f"Marathon version: {about}")
